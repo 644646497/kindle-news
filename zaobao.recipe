@@ -1,0 +1,11 @@
+class AdvancedUserRecipe1281929024(BasicNewsRecipe):
+    title = '联合早报'
+    language = 'zh_CN'
+    oldest_article = 1
+    max_articles_per_feed = 15
+    no_stylesheets = True
+    encoding = 'utf-8'
+    
+    feeds = [
+        ('要闻', 'https://www.zaobao.com/rss.xml'),
+    ]
