@@ -3,24 +3,19 @@ import time
 import re
 import datetime
 
-# 设置时区为北京时间
 os.environ['TZ'] = 'Asia/Shanghai'
 time.tzset()
 
 class AdvancedUserRecipe1281929026(BasicNewsRecipe):
-    # 动态生成标题：日经中文网 - 2026-05-19 15:30
-    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H:%M')
+    # 把冒号 : 换成短横 -
+    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H-%M')
     language = 'zh_CN'
     oldest_article = 1
     max_articles_per_feed = 10
     
-    # 禁止输出摘要
     no_summaries = True
-    
-    # 直接使用 RSS 的 description
     use_embedded_content = True
     
-    # 删除垃圾标签
     remove_tags = [
         dict(name='hr'),
         dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
@@ -29,13 +24,10 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
         dict(name='style'),
     ]
     
-    # 清理正文中的垃圾链接和文字
     def preprocess_html(self, soup):
-        # 删除所有 feedx 相关链接
         for a in soup.find_all('a'):
             if 'feedx' in a.get('href', ''):
                 a.decompose()
-        # 删除“获取更多RSS”文字块
         for div in soup.find_all('div'):
             if '获取更多RSS' in div.get_text():
                 div.decompose()
