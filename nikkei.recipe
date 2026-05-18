@@ -2,10 +2,28 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     title = '日经中文网'
     language = 'zh_CN'
     oldest_article = 1
-    max_articles_per_feed = 15
+    max_articles_per_feed = 10
     no_stylesheets = True
     encoding = 'utf-8'
     
+    # 删除垃圾标签
+    remove_tags = [
+        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
+        dict(name='script'),
+        dict(name='style'),
+        dict(name='nav'),
+        dict(name='aside'),
+        dict(name='footer'),
+    ]
+    
+    # 只保留正文区域
+    keep_only_tags = [
+        dict(name='article'),
+        dict(name='div', attrs={'class': ['content', 'main', 'article-body', 'article']}),
+    ]
+    
+    auto_cleanup = True
+    
     feeds = [
-        ('要闻', 'https://feedx.net/rss/nikkei.xml'),
+        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
     ]
