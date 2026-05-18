@@ -4,22 +4,25 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     oldest_article = 1
     max_articles_per_feed = 10
     
-    # 关键：直接使用 RSS 的 description，不抓取网页
+    # 禁止输出摘要
+    no_summaries = True
+    
+    # 直接使用 RSS 的 description 作为全文
     use_embedded_content = True
     
-    # 清理 description 里的垃圾 HTML
+    # 删除垃圾标签和 feedx 链接
     remove_tags = [
-        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
-        dict(name='script'),
-        dict(name='style'),
-        dict(name='hr'),  # 删除分隔线
+        dict(name='hr'),
+        dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
     ]
     
-    # 删除包含特定文字的链接
+    # 清理正文
     def preprocess_html(self, soup):
+        # 删除所有 feedx 相关链接
         for a in soup.find_all('a'):
             if 'feedx' in a.get('href', ''):
                 a.decompose()
+        # 删除“获取更多RSS”文字块
         for div in soup.find_all('div'):
             if '获取更多RSS' in div.get_text():
                 div.decompose()
