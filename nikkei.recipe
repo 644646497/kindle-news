@@ -3,26 +3,27 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     language = 'zh_CN'
     oldest_article = 1
     max_articles_per_feed = 10
-    no_stylesheets = True
-    encoding = 'utf-8'
     
-    # 删除垃圾标签
+    # 关键：直接使用 RSS 的 description，不抓取网页
+    use_embedded_content = True
+    
+    # 清理 description 里的垃圾 HTML
     remove_tags = [
         dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
         dict(name='script'),
         dict(name='style'),
-        dict(name='nav'),
-        dict(name='aside'),
-        dict(name='footer'),
+        dict(name='hr'),  # 删除分隔线
     ]
     
-    # 只保留正文区域
-    keep_only_tags = [
-        dict(name='article'),
-        dict(name='div', attrs={'class': ['content', 'main', 'article-body', 'article']}),
-    ]
-    
-    auto_cleanup = True
+    # 删除包含特定文字的链接
+    def preprocess_html(self, soup):
+        for a in soup.find_all('a'):
+            if 'feedx' in a.get('href', ''):
+                a.decompose()
+        for div in soup.find_all('div'):
+            if '获取更多RSS' in div.get_text():
+                div.decompose()
+        return soup
     
     feeds = [
         ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
