@@ -1,5 +1,15 @@
+import os
+import time
+import re
+import datetime
+
+# 设置时区为北京时间
+os.environ['TZ'] = 'Asia/Shanghai'
+time.tzset()
+
 class AdvancedUserRecipe1281929026(BasicNewsRecipe):
-    title = '日经中文网'
+    # 动态生成标题：日经中文网 - 2026-05-19 15:30
+    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H:%M')
     language = 'zh_CN'
     oldest_article = 1
     max_articles_per_feed = 10
@@ -7,16 +17,19 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     # 禁止输出摘要
     no_summaries = True
     
-    # 直接使用 RSS 的 description 作为全文
+    # 直接使用 RSS 的 description
     use_embedded_content = True
     
-    # 删除垃圾标签和 feedx 链接
+    # 删除垃圾标签
     remove_tags = [
         dict(name='hr'),
         dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
+        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
+        dict(name='script'),
+        dict(name='style'),
     ]
     
-    # 清理正文
+    # 清理正文中的垃圾链接和文字
     def preprocess_html(self, soup):
         # 删除所有 feedx 相关链接
         for a in soup.find_all('a'):
