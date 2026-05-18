@@ -1,0 +1,11 @@
+class AdvancedUserRecipe1281929025(BasicNewsRecipe):
+    title = '德国之声'
+    language = 'zh_CN'
+    oldest_article = 1
+    max_articles_per_feed = 15
+    no_stylesheets = True
+    encoding = 'utf-8'
+    
+    feeds = [
+        ('新闻', 'https://rss.dw.com/xml/rss-chi-all.xml'),
+    ]
