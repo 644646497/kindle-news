@@ -1,6 +1,1 @@
-guancha
-zaobao
-dw
-nikkei
-bbc
-rfi
+https://feedx.net/rss/nikkei.xml
