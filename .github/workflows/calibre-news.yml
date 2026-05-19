@@ -1,38 +1,56 @@
-import os
-import time
-import re
-import datetime
+name: Calibre News Delivery
 
-os.environ['TZ'] = 'Asia/Shanghai'
-time.tzset()
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
-class AdvancedUserRecipe1281929026(BasicNewsRecipe):
-    # 把冒号 : 换成短横 -
-    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H-%M')
-    language = 'zh_CN'
-    oldest_article = 1
-    max_articles_per_feed = 10
-    
-    no_summaries = True
-    use_embedded_content = True
-    
-    remove_tags = [
-        dict(name='hr'),
-        dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
-        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
-        dict(name='script'),
-        dict(name='style'),
-    ]
-    
-    def preprocess_html(self, soup):
-        for a in soup.find_all('a'):
-            if 'feedx' in a.get('href', ''):
-                a.decompose()
-        for div in soup.find_all('div'):
-            if '获取更多RSS' in div.get_text():
-                div.decompose()
-        return soup
-    
-    feeds = [
-        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
-    ]
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Calibre
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y calibre
+
+      - name: Send to Kindle
+        env:
+          FROM: ${{ secrets.FROM }}
+          TO: ${{ secrets.TO }}
+          SMTP: ${{ secrets.SMTP }}
+          PORT: ${{ secrets.PORT }}
+          SECRET: ${{ secrets.SECRET }}
+        run: |
+          ebook-convert nikkei.recipe news.epub --output-profile kindle
+          python3 -c '
+import smtplib, os
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from datetime import datetime
+
+msg = MIMEMultipart()
+msg["From"] = os.environ["FROM"]
+msg["To"] = os.environ["TO"]
+msg["Subject"] = f"日经中文 {datetime.now().strftime("%Y-%m-%d")}"
+
+with open("news.epub", "rb") as f:
+    part = MIMEBase("application", "epub+zip")
+    part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", "attachment", filename="nikkei.epub")
+    msg.attach(part)
+
+with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
+    server.login(os.environ["FROM"], os.environ["SECRET"])
+    server.send_message(msg)
+print("发送完成")
+'
