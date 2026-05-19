@@ -1,103 +1,48 @@
-name: Kindle 每日新闻推送
-run-name: 每日新闻推送 - ${{ github.sha }}
-
+name: 每日新闻推送
 on:
-  # 北京时间 20:00 执行（UTC 时间 12:00）
   schedule:
-    - cron: '0 12 * * *'
-  # 支持手动测试触发
-  workflow_dispatch:
+    - cron: '0 12 * * *'  # 北京时间 20:00
+  workflow_dispatch:     # 允许手动运行（你要的 RUN 按钮）
 
 jobs:
-  build-and-send:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 拉取仓库代码
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 安装 Calibre 与依赖
-        run: |
-          sudo apt update
-          sudo apt install -y calibre mailutils
-          python3 -m pip install lxml cssselect
+      - name: 安装 Calibre
+        run: sudo apt update && sudo apt install -y calibre
 
-      - name: 准备目录
-        run: |
-          mkdir -p covers styles
-
-      - name: 生成带日期的合并 Recipe
+      - name: 生成新闻 recipe
         run: |
           TODAY=$(date +%Y-%m-%d)
-          echo "生成电子书：每日新闻简报 - $TODAY"
-
-          cat > combined_news.recipe << EOF
+          cat > news.recipe << EOF
 from calibre.web.feeds.news import BasicNewsRecipe
 
-class CombinedNewsRecipe(BasicNewsRecipe):
-    title          = '每日新闻简报 - $TODAY'
-    language       = 'zh'
+class 新闻组合(BasicNewsRecipe):
+    title          = '日经&BBC全球新闻 '$TODAY
     oldest_article = 1
-    max_articles_per_feed = 150
-    auto_cleanup   = True
-    remove_tags   = [
-                        dict(name='div', attrs={'class':'advertisement'}),
-                        dict(name='div', attrs={'class':'ad'}),
-                    ]
-    feeds          = [
-        ('日经中文网', 'https://feedx.net/rss/nikkei.xml'),
-        ('BBC 中文网', 'https://feedx.net/rss/bbc.xml'),
+    max_articles_per_feed = 100
+    auto_cleanup = True
+    feeds = [
+        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
+        ('BBC中文', 'https://feedx.net/rss/bbc.xml'),
     ]
 EOF
 
-      - name: 生成 EPUB 电子书
-        run: |
-          ebook-convert combined_news.recipe combined_news.epub \
-            --output-profile kindle_paperwhite \
-            --cover "covers/cover.jpg" \
-            --extra-css "styles/style.css" \
-            --authors "自动新闻推送" \
-            --publisher "GitHub Actions" \
-            --language "zh"
+      - name: 生成 Kindle 格式电子书 AZW3
+        run: ebook-convert news.recipe news.azw3 --output-profile kindle
 
-      - name: 发送 EPUB 到 Kindle
-        env:
-          SEND_TO: ${{ secrets.SEND_TO }}
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: |
-          if [ ! -f combined_news.epub ]; then
-            echo "❌ EPUB 生成失败，终止流程"
-            exit 1
-          fi
-
-          echo "正在发送电子书到 $SEND_TO"
-          
-          # 构建邮件
-          cat > email.txt << EOF
-From: $SMTP_USER
-To: $SEND_TO
-Subject: Convert
-Content-Type: multipart/mixed; boundary="boundary"
-
---boundary
-Content-Type: text/plain; charset="UTF-8"
-
-请查收今日新闻简报。
-
---boundary
-Content-Type: application/epub+zip
-Content-Disposition: attachment; filename="news_$(date +%Y-%m-%d).epub"
-Content-Transfer-Encoding: base64
-
-$(base64 -w 0 combined_news.epub)
-
---boundary--
-EOF
-
-          # 发送邮件
-          sendmail -t -S "$SMTP_SERVER:$SMTP_PORT" -u "$SMTP_USER" -p "$SMTP_PASSWORD" -o smtp-use-starttls=yes < email.txt
-
-          # 清理临时文件
-          rm -f combined_news.epub combined_news.recipe email.txt
+      - name: 推送到 Kindle 邮箱
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: Convert
+          from: ${{ secrets.SMTP_USER }}
+          to: ${{ secrets.SEND_TO }}
+          body: 今日新闻已送达
+          attachments: news.azw3
