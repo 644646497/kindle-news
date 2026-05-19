@@ -1,49 +1,83 @@
-name: Send News to Kindle
+name: Kindle 每日新闻推送
+run-name: 每日新闻推送 - ${{ github.sha }}
 
 on:
+  # 北京时间 20:00 执行（UTC 时间 12:00）
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 12 * * *'
+  # 支持手动测试触发
   workflow_dispatch:
 
 jobs:
-  send:
+  build-and-send:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
 
-      - name: Install Calibre
-        run: sudo apt-get update && sudo apt-get install -y calibre
-
-      - name: Generate and Send
-        env:
-          FROM: ${{ secrets.FROM }}
-          TO: ${{ secrets.TO }}
-          SMTP: ${{ secrets.SMTP }}
-          PORT: ${{ secrets.PORT }}
-          SECRET: ${{ secrets.SECRET }}
+      - name: 安装 Calibre 环境
         run: |
-          ebook-convert recipe_list.txt news.epub --output-profile kindle
-          python3 -c '
-import smtplib, os
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from datetime import datetime
+          sudo apt update
+          sudo apt install -y calibre
+          python3 -m pip install lxml cssselect
 
-msg = MIMEMultipart()
-msg["From"] = os.environ["FROM"]
-msg["To"] = os.environ["TO"]
-msg["Subject"] = f"新闻合辑 {datetime.now().strftime("%Y-%m-%d")}"
+      - name: 准备目录
+        run: |
+          mkdir -p covers styles temp_feeds
 
-with open("news.epub", "rb") as f:
-    part = MIMEBase("application", "epub+zip")
-    part.set_payload(f.read())
-    encoders.encode_base64(part)
-    part.add_header("Content-Disposition", "attachment", filename="news.epub")
-    msg.attach(part)
+      - name: 生成合并版 Recipe 文件
+        run: |
+          # 书名：这里可以改成你喜欢的格式
+          TITLE="每日新闻简报 - $(date +%Y-%m-%d)"
+          echo "生成合并 Recipe：$TITLE"
 
-with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
-    server.login(os.environ["FROM"], os.environ["SECRET"])
-    server.send_message(msg)
-print("发送完成")
-'
+          cat > combined_news.recipe << EOF
+from calibre.web.feeds.news import BasicNewsRecipe
+
+class CombinedNewsRecipe(BasicNewsRecipe):
+    title          = '$TITLE'
+    language       = 'zh'
+    oldest_article = 1
+    max_articles_per_feed = 150
+    auto_cleanup   = True
+    remove_tags   = [
+                        dict(name='div', attrs={'class':'advertisement'}),
+                        dict(name='div', attrs={'class':'ad'}),
+                    ]
+    feeds          = [
+        ('日经中文网', 'https://feedx.net/rss/nikkei.xml'),
+        ('BBC 中文网', 'https://feedx.net/rss/bbc.xml'),
+    ]
+EOF
+
+      - name: 生成合并版 MOBI 电子书
+        run: |
+          ebook-convert combined_news.recipe combined_news.mobi \
+            --output-profile kindle \
+            --cover "covers/cover.jpg" \
+            --extra-css "styles/style.css" \
+            --authors "自动新闻推送" \
+            --publisher "GitHub Actions" \
+            --language "zh"
+
+      - name: 发送邮件到 Kindle
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SEND_TO: ${{ secrets.SEND_TO }}
+        run: |
+          if [ -f combined_news.mobi ]; then
+            echo "正在发送：combined_news.mobi"
+            echo "Subject: Convert" > email.txt
+            echo "From: $SMTP_USER" >> email.txt
+            echo "To: $SEND_TO" >> email.txt
+            echo "" >> email.txt
+            echo "Attached is your daily news from GitHub Actions" >> email.txt
+            sendmail -t -f "$SMTP_USER" -S "$SMTP_SERVER:$SMTP_PORT" -u "$SMTP_USER" -p "$SMTP_PASSWORD" -o smtp-use-starttls=yes < email.txt -a combined_news.mobi
+            rm -f email.txt combined_news.mobi combined_news.recipe
+          else
+            echo "❌ 电子书生成失败"
+            exit 1
+          fi
