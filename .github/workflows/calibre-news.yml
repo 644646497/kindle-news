@@ -1,56 +1,53 @@
-name: 每日新闻推送
+name: Send News to Kindle
+
 on:
   schedule:
-    - cron: '0 12 * * *'  # 北京时间 20:00
-  workflow_dispatch:     # 手动运行开关（必须保留）
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 jobs:
-  build:
+  send:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: 安装 Calibre
+      - name: Install Calibre
+        run: sudo apt-get update && sudo apt-get install -y calibre
+
+      - name: Generate and Send
+        env:
+          FROM: ${{ secrets.FROM }}
+          TO: ${{ secrets.TO }}
+          SMTP: ${{ secrets.SMTP }}
+          PORT: ${{ secrets.PORT }}
+          SECRET: ${{ secrets.SECRET }}
         run: |
-          sudo apt update
-          sudo apt install -y calibre
-          python3 -m pip install lxml cssselect
+          cat > recipe_list.txt << 'EOF'
+          https://feedx.net/rss/nikkei.xml
+          https://feedx.net/rss/bbc.xml
+          EOF
+          ebook-convert recipe_list.txt news.epub --output-profile kindle
+          python3 -c '
+import smtplib, os
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from datetime import datetime
 
-      - name: 生成新闻 Recipe
-        run: |
-          TODAY=$(date +%Y-%m-%d)
-          cat > news.recipe << EOF
-from calibre.web.feeds.news import BasicNewsRecipe
+msg = MIMEMultipart()
+msg["From"] = os.environ["FROM"]
+msg["To"] = os.environ["TO"]
+msg["Subject"] = f"新闻合辑 {datetime.now().strftime("%Y-%m-%d")}"
 
-class CombinedNewsRecipe(BasicNewsRecipe):
-    title          = '日经&BBC全球新闻 - $TODAY'
-    language       = 'zh'
-    oldest_article = 1
-    max_articles_per_feed = 100
-    auto_cleanup   = True
-    feeds          = [
-        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
-        ('BBC中文', 'https://feedx.net/rss/bbc.xml'),
-    ]
-EOF
+with open("news.epub", "rb") as f:
+    part = MIMEBase("application", "epub+zip")
+    part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", "attachment", filename="news.epub")
+    msg.attach(part)
 
-      - name: 生成 Kindle 兼容电子书
-        run: |
-          ebook-convert news.recipe news.azw3 \
-            --output-profile kindle_paperwhite \
-            --authors "自动新闻推送" \
-            --publisher "GitHub Actions"
-
-      - name: 发送到 Kindle 邮箱
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USER }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: Convert
-          from: ${{ secrets.SMTP_USER }}
-          to: ${{ secrets.SEND_TO }}
-          body: 今日新闻已送达，请查收。
-          attachments: news.azw3
+with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
+    server.login(os.environ["FROM"], os.environ["SECRET"])
+    server.send_message(msg)
+print("发送完成")
+'
