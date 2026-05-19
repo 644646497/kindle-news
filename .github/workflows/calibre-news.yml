@@ -22,10 +22,7 @@ jobs:
           PORT: ${{ secrets.PORT }}
           SECRET: ${{ secrets.SECRET }}
         run: |
-          cat > recipe_list.txt << 'EOF'
-          https://feedx.net/rss/nikkei.xml
-          https://feedx.net/rss/bbc.xml
-          EOF
+          echo "https://feedx.net/rss/nikkei.xml" > recipe_list.txt
           ebook-convert recipe_list.txt news.epub --output-profile kindle
           python3 -c '
 import smtplib, os
@@ -37,13 +34,13 @@ from datetime import datetime
 msg = MIMEMultipart()
 msg["From"] = os.environ["FROM"]
 msg["To"] = os.environ["TO"]
-msg["Subject"] = f"新闻合辑 {datetime.now().strftime("%Y-%m-%d")}"
+msg["Subject"] = f"日经中文 {datetime.now().strftime("%Y-%m-%d")}"
 
 with open("news.epub", "rb") as f:
     part = MIMEBase("application", "epub+zip")
     part.set_payload(f.read())
     encoders.encode_base64(part)
-    part.add_header("Content-Disposition", "attachment", filename="news.epub")
+    part.add_header("Content-Disposition", "attachment", filename="nikkei.epub")
     msg.attach(part)
 
 with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
