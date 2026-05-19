@@ -15,27 +15,26 @@ jobs:
       - name: 拉取仓库代码
         uses: actions/checkout@v4
 
-      - name: 安装 Calibre 环境
+      - name: 安装 Calibre 与依赖
         run: |
           sudo apt update
-          sudo apt install -y calibre
+          sudo apt install -y calibre mailutils
           python3 -m pip install lxml cssselect
 
       - name: 准备目录
         run: |
-          mkdir -p covers styles temp_feeds
+          mkdir -p covers styles
 
-      - name: 生成合并版 Recipe 文件
+      - name: 生成带日期的合并 Recipe
         run: |
-          # 书名：这里可以改成你喜欢的格式
-          TITLE="每日新闻简报 - $(date +%Y-%m-%d)"
-          echo "生成合并 Recipe：$TITLE"
+          TODAY=$(date +%Y-%m-%d)
+          echo "生成电子书：每日新闻简报 - $TODAY"
 
           cat > combined_news.recipe << EOF
 from calibre.web.feeds.news import BasicNewsRecipe
 
 class CombinedNewsRecipe(BasicNewsRecipe):
-    title          = '$TITLE'
+    title          = '每日新闻简报 - $TODAY'
     language       = 'zh'
     oldest_article = 1
     max_articles_per_feed = 150
@@ -50,34 +49,55 @@ class CombinedNewsRecipe(BasicNewsRecipe):
     ]
 EOF
 
-      - name: 生成合并版 MOBI 电子书
+      - name: 生成 EPUB 电子书
         run: |
-          ebook-convert combined_news.recipe combined_news.mobi \
-            --output-profile kindle \
+          ebook-convert combined_news.recipe combined_news.epub \
+            --output-profile kindle_paperwhite \
             --cover "covers/cover.jpg" \
             --extra-css "styles/style.css" \
             --authors "自动新闻推送" \
             --publisher "GitHub Actions" \
             --language "zh"
 
-      - name: 发送邮件到 Kindle
+      - name: 发送 EPUB 到 Kindle
         env:
+          SEND_TO: ${{ secrets.SEND_TO }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SEND_TO: ${{ secrets.SEND_TO }}
         run: |
-          if [ -f combined_news.mobi ]; then
-            echo "正在发送：combined_news.mobi"
-            echo "Subject: Convert" > email.txt
-            echo "From: $SMTP_USER" >> email.txt
-            echo "To: $SEND_TO" >> email.txt
-            echo "" >> email.txt
-            echo "Attached is your daily news from GitHub Actions" >> email.txt
-            sendmail -t -f "$SMTP_USER" -S "$SMTP_SERVER:$SMTP_PORT" -u "$SMTP_USER" -p "$SMTP_PASSWORD" -o smtp-use-starttls=yes < email.txt -a combined_news.mobi
-            rm -f email.txt combined_news.mobi combined_news.recipe
-          else
-            echo "❌ 电子书生成失败"
+          if [ ! -f combined_news.epub ]; then
+            echo "❌ EPUB 生成失败，终止流程"
             exit 1
           fi
+
+          echo "正在发送电子书到 $SEND_TO"
+          
+          # 构建邮件
+          cat > email.txt << EOF
+From: $SMTP_USER
+To: $SEND_TO
+Subject: Convert
+Content-Type: multipart/mixed; boundary="boundary"
+
+--boundary
+Content-Type: text/plain; charset="UTF-8"
+
+请查收今日新闻简报。
+
+--boundary
+Content-Type: application/epub+zip
+Content-Disposition: attachment; filename="news_$(date +%Y-%m-%d).epub"
+Content-Transfer-Encoding: base64
+
+$(base64 -w 0 combined_news.epub)
+
+--boundary--
+EOF
+
+          # 发送邮件
+          sendmail -t -S "$SMTP_SERVER:$SMTP_PORT" -u "$SMTP_USER" -p "$SMTP_PASSWORD" -o smtp-use-starttls=yes < email.txt
+
+          # 清理临时文件
+          rm -f combined_news.epub combined_news.recipe email.txt
