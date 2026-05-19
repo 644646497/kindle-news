@@ -22,29 +22,29 @@ jobs:
           PORT: ${{ secrets.PORT }}
           SECRET: ${{ secrets.SECRET }}
         run: |
-          echo "https://feedx.net/rss/nikkei.xml" > recipe_list.txt
           ebook-convert recipe_list.txt news.epub --output-profile kindle
+          
           python3 -c '
-import smtplib, os
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from datetime import datetime
-
-msg = MIMEMultipart()
-msg["From"] = os.environ["FROM"]
-msg["To"] = os.environ["TO"]
-msg["Subject"] = f"日经中文 {datetime.now().strftime("%Y-%m-%d")}"
-
-with open("news.epub", "rb") as f:
-    part = MIMEBase("application", "epub+zip")
-    part.set_payload(f.read())
-    encoders.encode_base64(part)
-    part.add_header("Content-Disposition", "attachment", filename="nikkei.epub")
-    msg.attach(part)
-
-with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
-    server.login(os.environ["FROM"], os.environ["SECRET"])
-    server.send_message(msg)
-print("发送完成")
-'
+          import smtplib, os
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.base import MIMEBase
+          from email import encoders
+          from datetime import datetime
+          
+          msg = MIMEMultipart()
+          msg["From"] = os.environ["FROM"]
+          msg["To"] = os.environ["TO"]
+          msg["Subject"] = f"新闻合辑 {datetime.now().strftime("%Y-%m-%d")}"
+          
+          with open("news.epub", "rb") as f:
+              part = MIMEBase("application", "epub+zip")
+              part.set_payload(f.read())
+              encoders.encode_base64(part)
+              part.add_header("Content-Disposition", "attachment", filename="新闻合辑.epub")
+              msg.attach(part)
+          
+          with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
+              server.login(os.environ["FROM"], os.environ["SECRET"])
+              server.send_message(msg)
+          print("发送完成")
+          '
