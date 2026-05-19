@@ -1,1 +1,2 @@
 https://feedx.net/rss/nikkei.xml
+https://feedx.net/rss/bbc.xml
