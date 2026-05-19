@@ -1,95 +1,56 @@
 name: Calibre News Delivery
-run-name: 'Calibre News Delivery: ${{ github.ref_name }}'
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
-  # push:
-  #   branches: ['master']
-
-permissions:
-  contents: read
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 jobs:
   worker:
     runs-on: ubuntu-latest
-    environment: calibre-news
-    env:
-      output: converted_ebooks
-      publisher: bookfere.com
-      author: Calibre News Delivery
-      relay: ${{ secrets.SMTP }}
-      port: ${{ secrets.PORT }}
-      encrypt: ${{ secrets.ENCRYPT }}
-      secret: ${{ secrets.SECRET }}
-      from: ${{ secrets.FROM }}
-      to: ${{ secrets.TO }}
-      ext: ${{ secrets.FORMAT || 'epub' }}
-      size: ${{ secrets.SIZE || 25 }}
     steps:
-      - name: Checking Variable
-        run: |
-          declare -A variables
-          declare -a absences
-          variables=(
-            'SMTP' "$relay" 'PORT' "$port" 'ENCRYPT' "$encrypt"
-            'SECRET' "$secret" 'FROM' "$from" 'TO' "$to")
-          for key in ${!variables[@]}; do
-            variable=${variables[$key]}
-            [ -n "$variable" ] || absences+=($key)
-          done
-          if [ ${#absences[@]} -gt 0 ]; then
-            variable_keys=$(echo ${absences[@]/%/,})
-            echo "Missing variable(s): ${variable_keys/%,/}"; exit 1
-          fi
-      - name: Set up Python
-        if: ${{ success() }}
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.11'
+
       - name: Install Calibre
-        if: ${{ success() }}
         run: |
           sudo apt-get update
-          sudo apt-get install libegl1 libopengl0 libxcb-cursor0
-          url=https://download.calibre-ebook.com/linux-installer.sh
-          sudo -v && wget -nv -O- $url | sudo sh /dev/stdin
-      - name: Retrieving Recipe
-        if: ${{ success() }}
-        uses: actions/checkout@v4
-      - name: Checking Recipe
-        if: ${{ success() }}
+          sudo apt-get install -y calibre
+
+      - name: Send to Kindle
+        env:
+          FROM: ${{ secrets.FROM }}
+          TO: ${{ secrets.TO }}
+          SMTP: ${{ secrets.SMTP }}
+          PORT: ${{ secrets.PORT }}
+          SECRET: ${{ secrets.SECRET }}
         run: |
-          declare -A recipe_paths
-          add_recipe() {
-            local name="$(basename "$recipe_path")"
-            local key=$(echo "$name" | md5sum | cut -d ' ' -f 1)
-            recipe_paths[$key]="$recipe_path"
-          }
-          if [ -f 'recipe_list.txt' ]; then
-            while read recipe_path || [ -n "$recipe_path" ]; do
-              if [ ! -n "$recipe_path" ]; then continue; fi
-              title="${recipe_path%.recipe}"
-              result="$(ebook-convert --list-recipes | grep "$title" || true)"
-              if [ ! -n "$result" ]; then
-                echo "Recipe \"$recipe_path\" does not exists"; continue
-              fi
-              if [ "${recipe_path##*.}" != 'recipe' ]; then
-                recipe_path="$recipe_path".recipe
-              fi
-              add_recipe
-            done < recipe_list.txt
-          fi
-          while read -d '' recipe_path; do
-            add_recipe
-          done < <(find . -maxdepth 1 -type f -name '*.recipe' -print0)
-          for key in ${!recipe_paths[@]}; do
-            recipe_path="${recipe_paths[$key]}"
-            echo "Recipe path: $recipe_path"
-            echo "$recipe_path" >> temp_recipe_list.txt
-          done
-          count=${#recipe_paths[@]}
-          echo "Recipe count: $count"
-          if [ $count -eq 0 ]; then
-            echo 'No recipe needs processing'; exit 1
+          ebook-convert nikkei.recipe news.epub --output-profile kindle
+          python3 -c '
+import smtplib, os
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from datetime import datetime
+
+msg = MIMEMultipart()
+msg["From"] = os.environ["FROM"]
+msg["To"] = os.environ["TO"]
+msg["Subject"] = f"日经中文 {datetime.now().strftime("%Y-%m-%d")}"
+
+with open("news.epub", "rb") as f:
+    part = MIMEBase("application", "epub+zip")
+    part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", "attachment", filename="nikkei.epub")
+    msg.attach(part)
+
+with smtplib.SMTP_SSL(os.environ["SMTP"], int(os.environ["PORT"])) as server:
+    server.login(os.environ["FROM"], os.environ["SECRET"])
+    server.send_message(msg)
+print("发送完成")
+'
