@@ -1,0 +1,15 @@
+name: Trigger KindleEar Push
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call PythonAnywhere deliver endpoint
+        run: |
+          curl -u "${{ secrets.PA_USER }}:${{ secrets.PA_PASS }}" \
+          "https://w2700681.pythonanywhere.com/deliver?now=1"
