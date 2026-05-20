@@ -1,0 +1,27 @@
+name: Update Pages Proxy IP
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get best Cloudflare IP
+        run: |
+          curl -s "https://cdn.jsdelivr.net/gh/XIU2/CloudflareSpeedTest@master/ip.txt" | head -1 > best.txt
+          IP=$(cat best.txt)
+          echo "BEST_IP=$IP" >> $GITHUB_ENV
+          echo "最快的IP: $IP"
+      
+      - name: Update Pages environment variable
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          projectName: ${{ secrets.PAGES_PROJECT_NAME }}
+          environment: production
+          variables: |
+            PROXYIP=${{ env.BEST_IP }}
