@@ -8,10 +8,7 @@ on:
 jobs:
   trigger:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
       - name: Call PythonAnywhere worker
         run: |
-          curl --retry 3 --max-time 300 \
-          "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&userName=admin&now=1"
+          curl "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&userName=admin&now=1"
