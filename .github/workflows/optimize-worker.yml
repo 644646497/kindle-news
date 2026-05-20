@@ -1,0 +1,42 @@
+name: Optimize Worker
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get fastest Cloudflare IP
+        run: |
+          curl -s "https://cdn.jsdelivr.net/gh/XIU2/CloudflareSpeedTest@master/ip.txt" | head -1 | cut -d'/' -f1 > best_ip.txt
+          BEST_IP=$(cat best_ip.txt)
+          echo "BEST_IP=$BEST_IP" >> $GITHUB_ENV
+          echo "最快的IP: $BEST_IP"
+      
+      - name: Update Worker environment variable
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WORKER_NAME: ${{ secrets.WORKER_NAME }}
+        run: |
+          curl -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/scripts/$WORKER_NAME/bindings" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '[
+              {
+                "name": "PROXYIP",
+                "type": "plain_text",
+                "text": "${{ env.BEST_IP }}"
+              }
+            ]'
+      
+      - name: Log result
+        run: |
+          echo "✅ Worker 已优化"
+          echo "PROXYIP = ${{ env.BEST_IP }}"
