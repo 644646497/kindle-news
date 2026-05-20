@@ -12,7 +12,7 @@ jobs:
       - name: Get best Cloudflare IP
         run: |
           curl -s "https://cdn.jsdelivr.net/gh/XIU2/CloudflareSpeedTest@master/ip.txt" | head -1 > best.txt
-          IP=$(cat best.txt)
+          IP=$(cat best.txt | cut -d'/' -f1)
           echo "BEST_IP=$IP" >> $GITHUB_ENV
           echo "最快的IP: $IP"
       
@@ -22,8 +22,8 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           PROJECT_NAME: ${{ secrets.PAGES_PROJECT_NAME }}
         run: |
-          curl -X PATCH \
-            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$PROJECT_NAME/deployment/hooks/environment_variables" \
+          curl -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$PROJECT_NAME/deployment/hooks/environment_variables/PROXYIP" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"PROXYIP":"${{ env.BEST_IP }}"}'
+            -d "{\"value\":\"${{ env.BEST_IP }}\",\"type\":\"plain_text\"}"
