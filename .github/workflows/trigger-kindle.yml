@@ -1,8 +1,6 @@
 name: Trigger KindleEar Push
 
 on:
-  push:
-    branches: [ master ]
   schedule:
     - cron: '0 12 * * *'
   workflow_dispatch:
@@ -11,6 +9,6 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Call PythonAnywhere deliver endpoint
+      - name: Call PythonAnywhere worker
         run: |
-          curl "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&now=1"
+          curl "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&userName=admin&now=1"
