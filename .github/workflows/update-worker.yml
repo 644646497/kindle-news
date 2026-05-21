@@ -2,7 +2,7 @@ name: Update Worker PROXYIP
 
 on:
   schedule:
-    - cron: '0 */12 * * *'
+    - cron: '0 */6 * * *'     # 每6小时自动更新一次（可自行调整）
   workflow_dispatch:
 
 jobs:
@@ -25,4 +25,4 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: |
-          echo "${{ env.BEST_IP }}" | npx wrangler secret put PROXYIP --name raspy-bush-4b8a --env production
+          echo "${{ env.BEST_IP }}" | npx wrangler secret put PROXYIP --name raspy-bush-4b8a
