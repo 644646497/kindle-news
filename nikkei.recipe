@@ -7,7 +7,6 @@ os.environ['TZ'] = 'Asia/Shanghai'
 time.tzset()
 
 class AdvancedUserRecipe1281929026(BasicNewsRecipe):
-    # 把冒号 : 换成短横 -
     title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H-%M')
     language = 'zh_CN'
     oldest_article = 1
@@ -34,5 +33,5 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
         return soup
     
     feeds = [
-        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
+        ('日经中文', 'https://raw.githubusercontent.com/644646497/rs/main/feed.xml'),
     ]
