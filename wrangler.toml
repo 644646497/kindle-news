@@ -1,4 +1,19 @@
 name = "raspy-bush-4b8a"
 main = "_worker.js"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-05-01"
+
+# 推荐添加以下配置，提升稳定性和 WebSocket 性能
+compatibility_flags = [
+  "nodejs_compat",
+  "no_nodejs_compat_v2"
+]
+
 account_id = "b106caab3a0eaa1e3eda7af2cc04d86d"
+
+# 可选：明确声明环境变量（便于管理）
+[vars]
+# 这里不用写 PROXYIP，因为它是 secret
+
+# 如果你以后有其他环境，可以在这里扩展
+# [env.production]
+# compatibility_date = "2026-05-01"
