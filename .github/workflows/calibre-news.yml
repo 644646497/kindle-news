@@ -1,14 +1,17 @@
 from calibre.web.feeds.news import BasicNewsRecipe
+from calibre.ebooks.BeautifulSoup import BeautifulSoup
 import os
 import time
 import re
 import datetime
 
+# 设置时区，确保时间显示正确
 os.environ['TZ'] = 'Asia/Shanghai'
 time.tzset()
 
-class AdvancedUserRecipe1281929026(BasicNewsRecipe):
-    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H-%M')
+# 类名改为简短、规范的名称
+class NikkeiRecipe(BasicNewsRecipe):
+    title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d')
     language = 'zh_CN'
     oldest_article = 1
     max_articles_per_feed = 10
@@ -18,16 +21,16 @@ class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     
     remove_tags = [
         dict(name='hr'),
-        dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
-        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
         dict(name='script'),
         dict(name='style'),
+        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
     ]
     
     def preprocess_html(self, soup):
-        for a in soup.find_all('a'):
-            if 'feedx' in a.get('href', ''):
-                a.decompose()
+        # 用更稳妥的方式过滤feedx链接
+        for a in soup.find_all('a', href=re.compile(r'.*feedx.*')):
+            a.decompose()
+        # 过滤无关文字块
         for div in soup.find_all('div'):
             if '获取更多RSS' in div.get_text():
                 div.decompose()
