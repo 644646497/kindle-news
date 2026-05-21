@@ -1,1 +1,1 @@
-https://feedx.net/rss/nikkei.xml
+https://raw.githubusercontent.com/644646497/rs/main/feed.xml
