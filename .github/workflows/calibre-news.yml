@@ -2,7 +2,7 @@ name: Calibre News Delivery
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 jobs:
@@ -40,7 +40,7 @@ from datetime import datetime
 msg = MIMEMultipart()
 msg["From"] = os.environ["FROM"]
 msg["To"] = os.environ["TO"]
-msg["Subject"] = f"日经中文 {datetime.now().strftime("%Y-%m-%d")}"
+msg["Subject"] = "日经中文 " + datetime.now().strftime("%Y-%m-%d")
 
 with open("news.epub", "rb") as f:
     part = MIMEBase("application", "epub+zip")
