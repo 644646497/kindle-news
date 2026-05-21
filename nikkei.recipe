@@ -4,35 +4,40 @@ import time
 import re
 import datetime
 
+# 设置时区
 os.environ['TZ'] = 'Asia/Shanghai'
 time.tzset()
 
 class AdvancedUserRecipe1281929026(BasicNewsRecipe):
     title = datetime.datetime.now().strftime('日经中文网 - %Y-%m-%d %H-%M')
     language = 'zh_CN'
-    oldest_article = 1
-    max_articles_per_feed = 10
+    oldest_article = 1          # 只抓取1天内的文章
+    max_articles_per_feed = 10  # 最多10篇
     
-    no_summaries = True
+    no_summaries = True         # 直接用内嵌内容，不抓取摘要页
     use_embedded_content = True
     
+    # 清理页面冗余内容
     remove_tags = [
         dict(name='hr'),
-        dict(name='a', attrs={'href': re.compile(r'.*feedx.*')}),
-        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
         dict(name='script'),
         dict(name='style'),
+        dict(name='div', attrs={'class': ['ad', 'banner', 'related', 'share', 'recommend', 'header', 'footer', 'nav', 'sidebar']}),
     ]
     
+    # 预处理HTML，额外清理feedx相关垃圾链接
     def preprocess_html(self, soup):
         for a in soup.find_all('a'):
-            if 'feedx' in a.get('href', ''):
+            href = a.get('href', '')
+            if 'feedx' in href or 'feedburner' in href:
                 a.decompose()
         for div in soup.find_all('div'):
-            if '获取更多RSS' in div.get_text():
+            text = div.get_text()
+            if '获取更多RSS' in text or '订阅' in text or '广告' in text:
                 div.decompose()
         return soup
     
+    # 关键：GitHub Actions里访问raw.githubusercontent.com有时会被墙，优先用https
     feeds = [
         ('日经中文', 'https://raw.githubusercontent.com/644646497/rs/main/feed.xml'),
     ]
