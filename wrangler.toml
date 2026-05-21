@@ -1,0 +1,4 @@
+name = "raspy-bush-4b8a"
+main = "_worker.js"
+compatibility_date = "2025-01-01"
+account_id = "b106caab3a0eaa1e3eda7af2cc04d86d"
