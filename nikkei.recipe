@@ -33,5 +33,5 @@ class NikkeiRecipe(BasicNewsRecipe):
         return soup
 
     feeds = [
-        ('日经中文', 'https://raw.githubusercontent.com/644646497/rs/main/feed.xml'),
+        ('日经中文', 'https://feedx.net/rss/nikkei.xml'),
     ]
