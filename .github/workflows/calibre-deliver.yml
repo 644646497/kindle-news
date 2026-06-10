@@ -1,76 +1,53 @@
-name: Calibre News Delivery
+name: Nikkei News to Kindle
 
 on:
   schedule:
-    - cron: '0 12 * * *'      # 每天 UTC 12:00 (北京时间 20:00)
-  workflow_dispatch:           # 支持手动触发
+    - cron: '0 12 * * *'
+  workflow_dispatch:
 
 jobs:
-  deliver:
+  send:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
-      - name: Install Calibre
+      - uses: actions/checkout@v4
+      
+      - name: Check Calibre version
         run: |
-          sudo -v
-          wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
+          # Calibre 已经预装，直接使用
           calibre --version
+          ebook-convert --version
           
-      - name: Generate news from recipes
+      - name: Generate Nikkei news
         run: |
-          mkdir -p output
+          # 直接生成 MOBI 文件
+          ebook-convert nikkei.recipe nikkei.mobi \
+            --output-profile kindle \
+            --mobi-file-type both
           
-          # 处理 nikkei.recipe
-          if [ -f "nikkei.recipe" ]; then
-            echo "Generating Nikkei news..."
-            ebook-convert nikkei.recipe output/nikkei.mobi
-          fi
+          # 查看生成的文件
+          ls -lh *.mobi
           
-          # 处理 recipe_list.txt 中的所有 recipe
-          if [ -f "recipe_list.txt" ]; then
-            while IFS= read -r recipe; do
-              if [ -n "$recipe" ] && [ -f "$recipe" ]; then
-                echo "Generating: $recipe"
-                ebook-convert "$recipe" "output/$(basename ${recipe%.recipe}).mobi"
-              fi
-            done < recipe_list.txt
-          fi
-          
-          echo "Generated files:"
-          ls -lh output/
-          
-      - name: Send to Kindle via SMTP
+      - name: Send to Kindle
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP }}
           server_port: 587
           username: ${{ secrets.FROM }}
           password: ${{ secrets.ENCRYPT }}
-          subject: "Kindle News ${{ github.run_number }} - $(date '+%Y-%m-%d')"
+          subject: "日经新闻 $(date '+%Y-%m-%d')"
           to: ${{ secrets.TO }}
           from: ${{ secrets.FROM }}
           body: |
-            📰 Daily News Digest
-            
-            Generated at: $(date '+%Y-%m-%d %H:%M:%S')
-            Run ID: ${{ github.run_number }}
-            
-            Attached files:
-            $(ls -la output/*.mobi 2>/dev/null | awk '{print "  - " $9 " (" $5 " bytes)"}')
-            
-            ---
-            Sent via GitHub Actions
-          attachments: output/*.mobi
-          secure: true
+            📰 每日新闻推送
+            生成时间: $(date '+%Y-%m-%d %H:%M:%S')
+          attachments: nikkei.mobi
           
-      - name: Upload artifacts (for debugging)
+      - name: Upload for debugging
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: news-${{ github.run_id }}
-          path: output/
-          retention-days: 7
+          name: nikkei-news
+          path: "*.mobi"
+          retention-days: 3
