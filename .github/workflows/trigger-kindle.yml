@@ -1,17 +1,14 @@
 name: Trigger KindleEar Push
 
 on:
-  schedule:
-    - cron: '0 12 * * *'
-  workflow_dispatch:
+schedule:
+- cron: '0 12 * * *'
+workflow_dispatch:
 
 jobs:
-  trigger:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Call PythonAnywhere worker
-        run: |
-          curl --retry 3 --max-time 300 \
-          "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&userName=admin&now=1"
+trigger:
+runs-on: ubuntu-latest
+steps:
+- name: Call PythonAnywhere worker
+run: |
+curl "https://w2700681.pythonanywhere.com/worker?key=cY9gKC&userName=admin&now=1"
